@@ -1,0 +1,10 @@
+{
+  // Minimal devcontainer for a KGA integration API. The claude-config Feature
+  // materializes the root-level CLAUDE.md and .claude/ tree (the shared KGA base
+  // config) on build and self-wires the sync, so no postCreateCommand is needed.
+  "name": "kga-fastapi-integration-template",
+  "image": "mcr.microsoft.com/devcontainers/base:trixie",
+  "features": {
+    "ghcr.io/kga-life/kga-claude-config/claude-config:1": {}
+  }
+}

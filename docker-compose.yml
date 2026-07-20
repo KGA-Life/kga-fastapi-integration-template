@@ -1,0 +1,32 @@
+# =============================================================================
+# kga-fastapi-integration-template — single-service compose.
+#
+# Dev/prod parity: one image, behavior driven entirely by .env (APP_ENV, etc.).
+# There is no separate dev/prod image.
+#
+#   docker compose up --build
+#
+# Requires a local .env (copy from .env.example and fill in the provider secrets
+# and the caller API keys).
+# =============================================================================
+
+services:
+  api:
+    build: .
+    image: kga-fastapi-integration-template
+    # Loads APP_ENV, APP_BASE_URL, LOG_LEVEL, API_KEYS, and the provider creds.
+    env_file: .env
+    environment:
+      # Pin the token store to the mounted volume, overriding any relative
+      # TOKEN_STORE_PATH inherited from .env (the repo default is .tokens/...,
+      # which would otherwise land in the container's ephemeral layer).
+      TOKEN_STORE_PATH: /data/example_token.json
+    ports:
+      - "8000:8000"
+    volumes:
+      # Named volume for any rotating auth token — survives restarts/rebuilds.
+      - example_token:/data
+    restart: unless-stopped
+
+volumes:
+  example_token:

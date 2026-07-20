@@ -1,0 +1,56 @@
+name: CI
+
+# Lint, format-check, and test the project on every PR and on pushes to main.
+# Mirrors the local developer loop exactly: uv sync -> ruff check -> ruff
+# format --check -> pytest. Keep these steps in sync with the commands in
+# README.md and CLAUDE.md so CI never diverges from how the project is run
+# locally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref (e.g. a force-push to a PR branch)
+# so we don't burn minutes on stale commits.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install uv
+        # No version is pinned here on purpose: setup-uv reads the exact uv
+        # version from `[tool.uv] required-version` in pyproject.toml, so the
+        # pin lives in one place and CI never falls back to resolving "latest"
+        # via the GitHub API (see KGA-143).
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install the pinned Python
+        # Reads the version from .python-version (currently 3.14).
+        run: uv python install
+
+      - name: Install dependencies
+        # --locked asserts uv.lock is in sync with pyproject.toml and fails CI
+        # if it has drifted, so a stale lock is never silently accepted.
+        # (--frozen would install the lock as-is without checking freshness.)
+        run: uv sync --locked
+
+      - name: Lint (ruff check)
+        run: uv run ruff check
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check
+
+      - name: Run tests (pytest)
+        run: uv run pytest

@@ -1,0 +1,54 @@
+# =============================================================================
+# Build-context exclusions. Keep the image lean and never ship secrets or the
+# host virtualenv into the build. Only pyproject.toml, uv.lock and app/ are
+# actually needed by the Dockerfile.
+# =============================================================================
+
+# Virtualenvs (rebuilt inside the image via `uv sync`)
+.venv/
+venv/
+
+# Version control
+.git/
+.gitignore
+
+# Secrets / local env (supplied at runtime via --env-file, never baked in)
+.env
+.env.*
+!.env.example
+
+# Provider on-disk token store (must never enter the image)
+.tokens/
+*.token.json
+*token*.json
+
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Tests (not needed at runtime)
+tests/
+
+# Docs / provider reference material
+docs/
+reference/
+
+# Docker / scratch
+Dockerfile
+.dockerignore
+docker-compose.yml
+.tmp/
+*.pid
+
+# IDE / OS noise
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,23 @@
+# Dependabot keeps the GitHub Actions used in .github/workflows/ up to date.
+# The workflows pin every action to a full commit SHA (with the human-readable
+# version in a trailing comment); Dependabot bumps both the SHA and that comment
+# when a new release ships, so we get supply-chain-safe pinning without having to
+# track upstream releases by hand.
+#
+# Scope is intentionally limited to the github-actions ecosystem (KGA-142). The
+# Python/uv dependency graph can be added as a separate `package-ecosystem: uv`
+# block in a follow-up once we want automated library bumps too.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Collapse all action bumps into a single PR per run to keep review noise low.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+    open-pull-requests-limit: 5

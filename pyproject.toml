@@ -1,0 +1,54 @@
+[project]
+name = "kga-fastapi-integration-template"
+version = "0.1.0"
+description = "Template FastAPI service for a KGA Life third-party integration API (provider-agnostic starting point)."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.uv]
+# Pin the exact uv version, so the local dev loop and CI run byte-for-byte the
+# same tool. `astral-sh/setup-uv` reads this `required-version` from the repo
+# root before doing anything else, so CI installs exactly this version and never
+# calls the GitHub API to resolve "latest" — which is both non-reproducible and
+# fails CI during a GitHub API outage (KGA-143). uv itself also enforces this
+# locally, keeping everyone in lockstep. To adopt a newer uv, bump this line
+# together (in one commit) with the version noted in README.md AND the uv base
+# image tag in the Dockerfile (ghcr.io/astral-sh/uv:<version>-python3.14-...),
+# or the Docker build will fail this exact check once its bundled uv drifts.
+required-version = "==0.10.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "N", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom puts callables in argument defaults
+# (`x = Depends(...)`, `q = Query(...)`). These are the framework's intended
+# pattern, not the B008 mutable-default footgun, so treat them as immutable.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Body",
+    "fastapi.Form",
+    "fastapi.Security",
+    "fastapi.File",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,21 @@
+# Normalize line endings across the team.
+# Text files are stored with LF in the repository and checked out with the
+# platform's native EOL. This silences the "LF will be replaced by CRLF"
+# warnings on Windows and keeps diffs consistent regardless of contributor OS.
+* text=auto eol=lf
+
+# Be explicit for the file types this project uses.
+*.py    text eol=lf
+*.toml  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.json  text eol=lf
+*.txt   text eol=lf
+uv.lock text eol=lf
+Dockerfile text eol=lf
+
+# Binary assets: never munge EOLs.
+*.png binary
+*.jpg binary
+*.ico binary

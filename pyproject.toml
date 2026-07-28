@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
 
 [tool.uv]
 # Pin the exact uv version, so the local dev loop and CI run byte-for-byte the
@@ -52,3 +52,24 @@ extend-immutable-calls = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Coverage runs on every pytest invocation (local loop == CI), and the run FAILS
+# below the floor as well as on any test failure — this is what makes CI-green a
+# load-bearing signal for the autonomous merge gate rather than "a trivial assert
+# passed". The floor is deliberately tunable per repo (see the coverage config
+# below): 80 is the KGA starting value; this template sits comfortably above it.
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=80"
+
+[tool.coverage.run]
+source = ["app"]
+# The `app/example/**` package is the deliberately-minimal PLACEHOLDER integration
+# every generated repo replaces (see app/config.py: "rename example throughout to
+# the provider"). It is excluded from the coverage floor so the template's own CI
+# is green on its real, governance-critical core (config, main, routers, models),
+# not on throwaway example scaffolding. When you build a concrete service you
+# rename `app/example/` to `app/<provider>/` — this pattern then matches nothing,
+# so your REAL integration code IS measured against the floor. Keep the 80 floor;
+# narrow this omit only to any remaining scaffolding.
+omit = ["app/example/*"]
+
+[tool.coverage.report]
+show_missing = true

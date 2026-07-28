@@ -92,8 +92,15 @@ gitignored too.
 ```sh
 uv run ruff check          # lint
 uv run ruff format --check # format check (uv run ruff format to fix)
-uv run pytest              # test suite (fully offline)
+uv run pytest              # test suite (fully offline) + coverage floor
 ```
+
+`pytest` runs under coverage and **fails below an 80% floor** (`--cov-fail-under=80` in
+`pyproject.toml`) as well as on any test failure — so "tests pass" means *a real, sufficient
+suite passed*, which is what makes CI-green load-bearing for the autonomous merge gate. The
+floor is measured over `app/` with the replace-me `app/example/**` placeholder omitted; the
+floor is tunable per repo — when you rename `app/example/` to `app/<provider>/`, your real
+integration code is measured against it (see the `[tool.coverage.run]` note in `pyproject.toml`).
 
 CI (`.github/workflows/ci.yml`) runs `uv sync --locked` → `ruff check` →
 `ruff format --check` → `pytest` on every push to `main` and every PR. **CI is the

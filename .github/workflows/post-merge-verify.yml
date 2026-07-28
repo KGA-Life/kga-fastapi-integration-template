@@ -1,0 +1,37 @@
+name: post-merge-verify
+
+# T47 post-merge verification + auto-revert caller (M4). Thin wrapper delegating
+# to the shared machinery in KGA-Life/kga-api-factory-merge-actions (pinned @v1).
+# After a merge lands on main, the reusable workflow re-verifies the branch on
+# the merge commit and, if CI is red, auto-reverts it (a fresh revert PR merged
+# by the same non-Claude-Code actor) so a "Done" Linear issue always maps to a
+# healthy main. Idempotent on the merge SHA (revert branch = revert/<short-sha>;
+# an existing revert is a no-op).
+#
+# Trigger: any push to main (a merge commit is a push to main).
+#
+# PRODUCTION CAVEAT (to be provisioned at the T35 dry-run): GitHub does NOT fire
+# workflows for pushes made with the built-in GITHUB_TOKEN (github-actions[bot]),
+# to prevent recursive runs. So if merge-gate.yml merges using the default
+# github.token, the resulting push to main will NOT trigger this workflow. For
+# the fully autonomous chain, provision a `merge_token` PAT secret (a real
+# actor): `secrets: inherit` then passes it to merge-gate.yml, the merge push is
+# attributed to that actor, and this verify step fires. Manual workflow_dispatch
+# on the reusable is the bring-up fallback.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  post-merge-verify:
+    permissions:
+      contents: write # push the revert branch + merge the revert PR
+      pull-requests: write # open + annotate the revert PR
+      checks: read
+      statuses: read
+    uses: KGA-Life/kga-api-factory-merge-actions/.github/workflows/post-merge-verify.yml@v1
+    with:
+      merge_sha: ${{ github.sha }}
+      machinery_ref: v1
+    secrets: inherit

@@ -1,0 +1,53 @@
+name: merge-gate
+
+# Autonomous-merge caller (M4). Thin wrapper that delegates the T43 three-signal
+# gate + T34 merge executor to the shared, versioned machinery in
+# KGA-Life/kga-api-factory-merge-actions (pinned @v1). Nothing merge-specific
+# lives in this repo: the logic is centralised so every generated integration
+# repo gets the same gate and a fix lands once, upstream, for all of them.
+#
+# Trigger: the `merge-candidate` label being ADDED to a PR. The T33 routing step
+# applies that label only on a clean @claude review with the Linear acceptance
+# criteria met, so the label is the human-free "criteria met + review greenlit"
+# signal. The reusable workflow independently re-checks CI-green on the exact
+# head SHA immediately before it merges (the VG-4 stale-SHA guard), and
+# post-merge-verify.yml (T47) re-verifies main after the merge lands.
+#
+# Known ordering gap (to be validated/hardened at the T35 dry-run): if the label
+# is applied while CI is still running, the gate denies transiently (CI not
+# green) and does NOT merge; re-applying the label re-fires it. A CI-completion
+# re-trigger is the planned hardening.
+
+on:
+  pull_request:
+    types: [labeled]
+
+# Serialize gate runs per PR so a rapid label remove/re-add (e.g. the documented
+# label-before-CI-green retry) can't run two gates against the same PR at once.
+# cancel-in-progress is FALSE on purpose: never cancel a run that may be mid-merge
+# — coalesce duplicate label events instead. A superseded run is a harmless
+# already_merged / re-evaluate no-op thanks to the executor's head-SHA re-check.
+concurrency:
+  group: merge-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  merge-gate:
+    # Only the merge-candidate label arms the gate; every other label is ignored.
+    if: github.event.label.name == 'merge-candidate'
+    permissions:
+      contents: write # the reusable workflow merges the PR
+      pull-requests: write # ...and posts the audit / deny comment
+      checks: read # read check-runs for the head SHA (the CI-green signal)
+      statuses: read # read the legacy combined commit status
+    uses: KGA-Life/kga-api-factory-merge-actions/.github/workflows/merge-gate.yml@v1
+    with:
+      pr: ${{ github.event.pull_request.number }}
+      # Pin the checked-out merge/ machinery to the same tag as the workflow file
+      # so the code and the reusable-workflow contract never drift.
+      machinery_ref: v1
+    # Pass repo secrets through. The reusable falls back to the built-in
+    # github.token (github-actions[bot]) when no `merge_token` secret is present;
+    # provide a `merge_token` PAT to attribute the merge to a real actor (see
+    # post-merge-verify.yml for why that matters for the T47 trigger).
+    secrets: inherit

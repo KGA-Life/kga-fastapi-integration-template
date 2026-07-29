@@ -1,0 +1,36 @@
+name: review-router
+
+# T33 caller (M4). Thin wrapper delegating the review-outcome routing to the shared, versioned
+# machinery in KGA-Life/kga-api-factory-merge-actions (pinned @v1). On each @claude review comment it
+# greenlights (applies the `merge-candidate` label the T43 merge-gate consumes) when the review
+# verdict is APPROVE + CI is green, or un-greenlights (removes the label) when the verdict is
+# REQUEST_CHANGES — so the label stays a faithful proxy for the review outcome (KGA-176 / KGA-337).
+#
+# Trigger: a claude[bot] comment on a PR (the @claude reviewer posts/edits its verdict as an issue
+# comment; claude-code-action cannot submit a formal review, so the comment marker is the channel).
+# The router is idempotent and no-ops until a final verdict is present, so the reviewer's
+# placeholder->verdict comment-edit sequence is safe to fire on.
+#
+# secrets: inherit passes `merge_token` through. As with merge-gate/post-merge-verify, provide a
+# `merge_token` PAT so the applied label fires merge-gate.yml (a github-actions[bot] label write does
+# not trigger it); without it the label lands but the gate must be re-fired manually.
+
+on:
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  review-router:
+    # Only the @claude reviewer's own comments on a PR arm the router; every other comment is ignored
+    # (the coding agent's `@claude` review REQUEST is posted as a human/Claudette actor, not claude[bot]).
+    if: ${{ github.event.issue.pull_request && github.event.comment.user.login == 'claude[bot]' }}
+    permissions:
+      issues: write # add/remove the merge-candidate label
+      pull-requests: write # post the greenlight / un-greenlight audit comment
+      checks: read
+      statuses: read
+    uses: KGA-Life/kga-api-factory-merge-actions/.github/workflows/review-router.yml@v1
+    with:
+      pr: ${{ github.event.issue.number }}
+      machinery_ref: v1
+    secrets: inherit

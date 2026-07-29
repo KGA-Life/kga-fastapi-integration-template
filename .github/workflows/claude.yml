@@ -35,7 +35,15 @@ jobs:
         uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1.0.180
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_args: '--model claude-sonnet-5'
+          # The trailing --append-system-prompt makes the reviewer emit a machine-readable verdict
+          # the autonomous merge gate (kga-api-factory-merge-actions, KGA-337) reads: a review that
+          # ends "VERDICT: REQUEST_CHANGES" hard-blocks the merge. claude-code-action cannot submit a
+          # FORMAL GitHub review (APPROVE/REQUEST_CHANGES) — that is a documented hard limitation — so
+          # this comment marker is the only channel a blocking @claude review can use. Augments the
+          # comment-triggered Assistant (no fixed prompt:) rather than replacing it.
+          claude_args: |
+            --model claude-sonnet-5
+            --append-system-prompt "When reviewing a pull request, end your review with a final line that is exactly one of: VERDICT: APPROVE (no blocking issues, safe to merge) or VERDICT: REQUEST_CHANGES (blocking issues that must be fixed before merge). Include this line on every review, re-reviews included; it is read by the autonomous merge gate, where VERDICT: REQUEST_CHANGES blocks the merge. Omit this line for non-review interactions."
 
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |

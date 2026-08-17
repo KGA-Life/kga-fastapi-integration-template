@@ -46,9 +46,11 @@ secret or bypass governance. Treat any change that weakens them as a defect.
   secret-shaped value appears in the diff.
 
 ### 2. Governance seam stays clean
-- Every data endpoint is gated by a **single auth dependency** (see *Architecture*). That one
-  dependency is the deliberate attachment point for **caller authentication** and an **audit
-  hook** — added with a one-line `Depends(...)` per router, without a rewrite.
+- Every data endpoint is gated at a **single governance seam** (`app/routers/deps.py`, see
+  *Architecture*). Two complementary checks attach there: **caller authentication** (`X-API-Key`
+  — which service is calling) and **principal authorization** (OAuth2 JWT scopes — what the
+  authenticated principal may do), alongside the **audit hook** — each added with a one-line
+  `Depends(...)`, without a router rewrite. See `.claude/rules/auth-conventions.md`.
 - **Do not scatter auth or audit logic across routers.** Keep it at the seam so the future
   central KGA API can attach governance uniformly.
 
@@ -146,6 +148,10 @@ code in this repo:
 - **`.claude/rules/python-pep8.md`** — Python / PEP 8 style (ruff is the enforcer).
 - **`.claude/rules/fastapi-conventions.md`** — routes, docstrings/Swagger, data models,
   folder/module structure, the layering and seam rules.
+- **`.claude/rules/auth-conventions.md`** — authentication/authorization: the two auth layers
+  (caller `X-API-Key` + principal JWT scopes), the provider-agnostic `AuthProvider` seam (swap
+  the IdP in one file), validate-only JWT/JWKS, the `<domain>:<provider>:<action>` scope registry
+  and superset semantics, `401`/`403`/`503` error semantics, and the offline/testability invariant.
 
 `ruff` (configured in `pyproject.toml`) enforces the lint/format baseline. A `PostToolUse` hook
 in `.claude/settings.json` runs `ruff format` + `ruff check` after edits **for human developers

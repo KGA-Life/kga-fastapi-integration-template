@@ -180,6 +180,37 @@ def test_missing_bearer_is_rejected(
     assert resp.headers.get("www-authenticate", "").startswith("Bearer")
 
 
+def test_invalid_bearer_token_returns_401_end_to_end(
+    client: TestClient,
+    api_key: str,
+    auth0_provider: Any,
+    mint_token: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Drive the REAL current_principal -> Auth0Provider chain end-to-end, but with
+    # the offline injected-resolver provider (no JWKS network). current_principal
+    # calls get_provider() by name in its own module, so monkeypatch that name
+    # rather than using dependency_overrides. This proves the invalid-token path
+    # returns 401 through a mounted finance route (the provider-level tests only
+    # prove verify() raises; the existing route tests only cover missing-bearer).
+    monkeypatch.setattr("app.auth.dependencies.get_provider", lambda: auth0_provider)
+
+    # Valid API key, but an EXPIRED bearer -> 401 with the invalid_token challenge.
+    expired = mint_token(expires_in=-30, permissions=["finance:xero:read"])
+    resp = client.get(
+        "/finance/xero/invoices",
+        headers={**API_HEADER, "Authorization": f"Bearer {expired}"},
+    )
+    assert resp.status_code == 401
+    assert resp.headers.get("www-authenticate", "") == 'Bearer error="invalid_token"'
+
+    # Valid API key, but NO Authorization header -> 401 (short-circuits at the
+    # bearer check, before the provider is consulted).
+    resp_missing = client.get("/finance/xero/invoices", headers=API_HEADER)
+    assert resp_missing.status_code == 401
+    assert resp_missing.headers.get("www-authenticate", "").startswith("Bearer")
+
+
 # --- Registry <-> routes consistency ----------------------------------------
 
 

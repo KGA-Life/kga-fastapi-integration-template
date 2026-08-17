@@ -80,6 +80,14 @@ def test_expired_token_is_rejected(auth0_provider: Auth0Provider, mint_token: An
         auth0_provider.verify(mint_token(expires_in=-30))
 
 
+def test_future_nbf_is_rejected(auth0_provider: Auth0Provider, mint_token: Any) -> None:
+    # A token whose not-before (nbf) is in the future is not yet valid: PyJWT
+    # raises ImmatureSignatureError, which the provider maps to InvalidTokenError.
+    token = mint_token(permissions=["finance:xero:read"], not_before=3600)
+    with pytest.raises(InvalidTokenError):
+        auth0_provider.verify(token)
+
+
 def test_alg_none_forgery_is_rejected(auth0_provider: Auth0Provider, mint_token: Any) -> None:
     # Unsigned "alg=none" token: the provider pins RS256, so it is refused.
     forged = mint_token(algorithm="none", key=None)

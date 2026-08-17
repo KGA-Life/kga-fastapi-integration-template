@@ -29,7 +29,9 @@ def test_unguarded_when_no_api_keys_configured(
 ) -> None:
     # API_KEYS empty => caller-auth is disabled (dev convenience): a request with NO
     # X-API-Key is allowed through to the handler rather than 401'd.
-    monkeypatch.delenv("API_KEYS", raising=False)
+    # Set the env var to empty (not delenv): the env source outranks the .env file, so
+    # this forces the unguarded path even when a developer's local .env sets API_KEYS.
+    monkeypatch.setenv("API_KEYS", "")
     get_settings.cache_clear()
     override_provider_auth(fake_service)
     resp = client.get(ITEMS_PATH)  # deliberately no X-API-Key

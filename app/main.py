@@ -21,6 +21,7 @@ from collections.abc import Awaitable, Callable
 from fastapi import FastAPI, Request, Response
 
 from app.config import Settings, get_settings
+from app.domains.finance.router import router as finance_router
 from app.routers.deps import register_exception_handlers
 from app.routers.example import router as example_router
 
@@ -49,6 +50,15 @@ OPENAPI_TAGS: list[dict[str, str]] = [
         "description": (
             "Read and write endpoints over the example provider. Replace with "
             "the concrete provider's domains."
+        ),
+    },
+    {
+        "name": "Finance",
+        "description": (
+            "The finance domain — Xero, Netcash, and Investec third-party "
+            "provider wrappers mounted under `/finance`. Every route is "
+            "scope-gated (`finance:<provider>:read` / `:write`) behind the "
+            "Auth0 principal, in addition to `X-API-Key` caller auth."
         ),
     },
     {
@@ -92,6 +102,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(example_router)
+    app.include_router(finance_router)
 
     # Content-negotiated ProviderAuthError -> redirect (browser) / 503 (API).
     register_exception_handlers(app)

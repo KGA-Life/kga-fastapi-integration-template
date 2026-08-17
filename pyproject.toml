@@ -10,6 +10,7 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "httpx>=0.27",
+    "pyjwt[crypto]>=2.13.0",
 ]
 
 [dependency-groups]
@@ -69,6 +70,13 @@ source = ["app"]
 # rename `app/example/` to `app/<provider>/` — this pattern then matches nothing,
 # so your REAL integration code IS measured against the floor. Keep the 80 floor;
 # narrow this omit only to any remaining scaffolding.
+#
+# DECISION (T16): KEEP `app/example/` as the minimal single-provider reference
+# that preserves the "generate a new integration / copy-a-folder" factory story;
+# the `app/domains/finance/` gateway is the richer worked example alongside it.
+# Both stay mounted. Only the replaceable `app/example/` placeholder is omitted —
+# `app/auth/**` and `app/domains/**` are real gateway code and are deliberately
+# NOT omitted, so they ARE measured against the floor (their tests land next batch).
 omit = ["app/example/*"]
 
 [tool.coverage.report]

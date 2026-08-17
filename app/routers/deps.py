@@ -1,16 +1,38 @@
 """Shared router dependencies and app-wide exception handling — the governance seam.
 
-This module holds the single place every data endpoint attaches to for auth, and
+This module is the single import point routers attach to for authorization, and
 the content-negotiated handler that turns a :class:`ProviderAuthError` into either
 a browser redirect or a JSON ``503``.
 
-Three pieces live here:
+**Two complementary authorization layers compose on a route — neither replaces
+the other:**
+
+* **Caller auth** — :func:`require_api_key` answers *which service is calling*
+  (the ``X-API-Key`` header identifying a trusted KGA caller).
+* **Principal authorization** — :func:`require_scopes` / :func:`current_principal`
+  (re-exported here from :mod:`app.auth.dependencies`) answer *what the
+  Auth0-authenticated principal may do* (the granular JWT scopes on the bearer
+  token). A route typically declares BOTH: ``require_api_key`` in its
+  ``dependencies=[...]`` list and ``require_scopes("finance:xero:read")`` as an
+  injected parameter. Routers import both from HERE so there is one seam.
+
+These are orthogonal to :func:`require_provider_auth` below, which is the
+*upstream-provider-token* seam (the gateway's own credential to Xero/Netcash/
+Investec/etc.) — unrelated to the caller's JWT.
+
+The pieces:
 
 * :func:`require_api_key` -- the **caller-auth** dependency. When
   ``API_KEYS`` is configured it rejects requests lacking a valid ``X-API-Key``;
   when it is empty it logs a warning that the surface is unguarded and allows
   the request (a dev convenience). This is the documented attachment point for
   future centralized caller-auth.
+* :func:`current_principal` / :func:`require_scopes` -- the **principal-authz**
+  dependencies, re-exported from :mod:`app.auth.dependencies`. ``current_principal``
+  validates the bearer JWT and returns the :class:`~app.auth.models.Principal`;
+  ``require_scopes(...)`` is a factory gating a route on granular scopes (``403``
+  on a missing scope). Re-exported so routers import the whole auth seam from one
+  module.
 * :func:`require_provider_auth` -- ensures a usable provider token via
   :func:`~app.example.auth.ensure_valid_token`, then hands back an
   :class:`~app.example.service.ExampleService`. The service is imported lazily
@@ -31,6 +53,7 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from app.auth.dependencies import current_principal, require_scopes
 from app.config import get_settings
 from app.example.auth import ProviderAuthError, ensure_valid_token, login_url
 
@@ -41,10 +64,12 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "ProviderAuthError",
+    "current_principal",
     "provider_auth_exception_handler",
     "register_exception_handlers",
     "require_api_key",
     "require_provider_auth",
+    "require_scopes",
 ]
 
 

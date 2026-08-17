@@ -61,6 +61,17 @@ class Settings(BaseSettings):
     example_client_id: str = ""
     example_client_secret: str = ""
 
+    # Authorization (bearer-JWT validation). The gateway is an OAuth2 resource
+    # server: it VALIDATES tokens an identity provider issues, never mints them.
+    # ``auth_provider`` selects the active :class:`~app.auth.provider.AuthProvider`
+    # implementation. The Auth0 tenant domain and API audience are optional here
+    # so the app boots offline; they are validated at token-verify time via
+    # ``require_auth0_config`` (never at import/boot).
+    auth_provider: Literal["auth0"] = "auth0"
+    auth0_domain: str = ""
+    auth0_api_audience: str = ""
+    auth0_algorithms: str = "RS256"
+
     @property
     def api_key_set(self) -> set[str]:
         """Configured caller API keys as a set, ignoring blanks."""
@@ -98,6 +109,34 @@ class Settings(BaseSettings):
                 "Missing required provider credential(s): "
                 f"{', '.join(missing)}. Set them in your .env file "
                 "(see .env.example) before making a provider call."
+            )
+
+    @property
+    def auth0_issuer(self) -> str:
+        """The Auth0 token issuer URL, derived from the tenant domain.
+
+        Auth0 issues tokens with ``iss = https://<domain>/`` (trailing slash);
+        this is compared against the token's ``iss`` during validation.
+        """
+        return f"https://{self.auth0_domain}/"
+
+    def require_auth0_config(self) -> None:
+        """Fail fast if Auth0 tenant settings are missing (token-verify use-time).
+
+        Mirrors :meth:`require_credentials`: called only when validating a token,
+        never at import/boot, so the app stays offline-bootable. Raises
+        ``RuntimeError`` naming the missing environment variable(s).
+        """
+        missing: list[str] = []
+        if not self.auth0_domain:
+            missing.append("AUTH0_DOMAIN")
+        if not self.auth0_api_audience:
+            missing.append("AUTH0_API_AUDIENCE")
+        if missing:
+            raise RuntimeError(
+                "Missing required Auth0 setting(s): "
+                f"{', '.join(missing)}. Set them in your .env file "
+                "(see .env.example) before validating bearer tokens."
             )
 
 

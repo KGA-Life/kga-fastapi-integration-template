@@ -15,7 +15,7 @@ from fastapi import HTTPException
 from app.auth import dependencies
 from app.auth.dependencies import current_principal, require_scopes
 from app.auth.models import Principal
-from app.auth.provider import AuthProvider, InvalidTokenError
+from app.auth.provider import AuthProvider, InsufficientScopeError, InvalidTokenError
 from tests.conftest import make_principal
 
 
@@ -98,18 +98,21 @@ def test_dependency_allows_via_superset_grant() -> None:
 
 def test_dependency_forbids_missing_scope_naming_the_gap() -> None:
     dep = require_scopes("finance:xero:write")
-    with pytest.raises(HTTPException) as exc:
+    # The dependency raises the vendor-neutral InsufficientScopeError carrying the
+    # missing scope; the app-wide handler renders it as 403 + the insufficient_scope
+    # challenge (asserted end-to-end in test_gateway_routing).
+    with pytest.raises(InsufficientScopeError) as exc:
         dep(principal=make_principal("finance:xero:read"))
-    assert exc.value.status_code == 403
-    assert 'scope="finance:xero:write"' in exc.value.headers["WWW-Authenticate"]
+    assert exc.value.required == "finance:xero:write"
 
 
 def test_dependency_requires_all_scopes_when_multiple() -> None:
     dep = require_scopes("finance:xero:read", "finance:netcash:read")
-    # Holding only one of the two required scopes is rejected.
-    with pytest.raises(HTTPException) as exc:
+    # Holding only one of the two required scopes is rejected, and the first
+    # missing scope (netcash) is named on the raised exception.
+    with pytest.raises(InsufficientScopeError) as exc:
         dep(principal=make_principal("finance:xero:read"))
-    assert exc.value.status_code == 403
+    assert exc.value.required == "finance:netcash:read"
     # A domain-wide grant covers both requirements.
     both = make_principal("finance:read")
     assert dep(principal=both) is both

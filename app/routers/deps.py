@@ -54,6 +54,7 @@ from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.auth.dependencies import current_principal, require_scopes
+from app.auth.provider import InsufficientScopeError
 from app.config import get_settings
 from app.example.auth import ProviderAuthError, ensure_valid_token, login_url
 
@@ -63,8 +64,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "InsufficientScopeError",
     "ProviderAuthError",
     "current_principal",
+    "insufficient_scope_exception_handler",
     "provider_auth_exception_handler",
     "register_exception_handlers",
     "require_api_key",
@@ -125,6 +128,27 @@ async def provider_auth_exception_handler(request: Request, exc: ProviderAuthErr
     )
 
 
+async def insufficient_scope_exception_handler(
+    request: Request, exc: InsufficientScopeError
+) -> Response:
+    """Map an :class:`InsufficientScopeError` to ``403`` + the RFC 6750 challenge.
+
+    Mirrors the central-handling pattern used for :class:`ProviderAuthError`: the
+    :func:`~app.auth.dependencies.require_scopes` dependency raises the
+    vendor-neutral exception, and this app-wide handler renders the HTTP contract
+    (``403`` JSON body plus the ``insufficient_scope`` ``WWW-Authenticate``
+    challenge naming the missing scope). The body carries only the safe
+    ``required`` scope string — never the caller's token or grants.
+    """
+    return JSONResponse(
+        status_code=403,
+        content={"detail": "Insufficient scope", "required": exc.required},
+        headers={"WWW-Authenticate": f'Bearer error="insufficient_scope", scope="{exc.required}"'},
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
-    """Register the app-wide handler for :class:`ProviderAuthError`."""
+    """Register the app-wide handlers for :class:`ProviderAuthError` and
+    :class:`InsufficientScopeError`."""
     app.add_exception_handler(ProviderAuthError, provider_auth_exception_handler)
+    app.add_exception_handler(InsufficientScopeError, insufficient_scope_exception_handler)

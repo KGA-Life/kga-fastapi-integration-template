@@ -25,7 +25,7 @@ from fastapi import Depends, Header, HTTPException
 
 from app.auth import scopes
 from app.auth.models import Principal
-from app.auth.provider import InvalidTokenError, get_provider
+from app.auth.provider import InsufficientScopeError, InvalidTokenError, get_provider
 
 __all__ = ["current_principal", "require_scopes"]
 
@@ -76,9 +76,13 @@ def require_scopes(*required: str) -> Callable[..., Principal]:
     Validates each scope against :data:`~app.auth.scopes.KNOWN_SCOPES` at
     factory-call time (a typo'd scope raises :class:`ValueError` at wiring time).
     The returned dependency depends on :func:`current_principal`, checks each
-    required scope via :meth:`Principal.has_scope`, and raises ``403`` with an
-    ``insufficient_scope`` challenge naming the first missing scope. Returns the
-    principal on success.
+    required scope via :meth:`Principal.has_scope`, and raises
+    :class:`~app.auth.provider.InsufficientScopeError` naming the first missing
+    scope. That vendor-neutral exception is mapped to ``403`` with an
+    ``insufficient_scope`` challenge by the app-wide handler registered in
+    :func:`app.routers.deps.register_exception_handlers` (mirroring how
+    :class:`ProviderAuthError` is handled centrally). Returns the principal on
+    success.
     """
     unknown = [scope for scope in required if scope not in scopes.KNOWN_SCOPES]
     if unknown:
@@ -90,13 +94,7 @@ def require_scopes(*required: str) -> Callable[..., Principal]:
     def dependency(principal: Principal = _PRINCIPAL) -> Principal:
         for scope in required:
             if not principal.has_scope(scope):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Insufficient scope",
-                    headers={
-                        "WWW-Authenticate": (f'Bearer error="insufficient_scope", scope="{scope}"')
-                    },
-                )
+                raise InsufficientScopeError(scope)
         return principal
 
     return dependency

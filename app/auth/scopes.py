@@ -113,8 +113,11 @@ def _grant_satisfies(
     # provider must match exactly.
     if g_provider is not None and g_provider != r_provider:
         return False
-    # write implies read; otherwise the action must match exactly.
-    return g_action == r_action or g_action == WRITE
+    # write implies read; otherwise the action must match exactly. Scoping the
+    # write=>read implication to r_action == READ keeps it from silently widening
+    # WRITE into any future action (e.g. a hypothetical "admin") — today READ and
+    # WRITE are the only actions, so this is behaviour-preserving but future-safe.
+    return g_action == r_action or (g_action == WRITE and r_action == READ)
 
 
 def satisfies(granted: Iterable[str], required: str) -> bool:

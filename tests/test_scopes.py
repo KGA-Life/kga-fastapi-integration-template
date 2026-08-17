@@ -16,6 +16,7 @@ from app.auth.models import Principal
 from app.auth.scopes import (
     FINANCE_PROVIDERS,
     KNOWN_SCOPES,
+    _grant_satisfies,
     finance_scope_strings,
     satisfies,
 )
@@ -73,6 +74,20 @@ def test_cross_provider_is_denied() -> None:
 
 def test_read_does_not_imply_write() -> None:
     assert satisfies({"finance:xero:read"}, "finance:xero:write") is False
+
+
+def test_write_only_implies_read_not_any_future_action() -> None:
+    # Pins the intent of the `g_action == WRITE and r_action == READ` guard in
+    # `_grant_satisfies`: a WRITE grant implies READ, but must NOT satisfy an
+    # arbitrary (future) non-read action. Constructed at the parsed-grant level
+    # with a SYNTHETIC action ("admin") that does not exist in ACTIONS today, so
+    # the invariant survives the day a third action is added to the taxonomy.
+    write_grant = ("finance", "xero", "write")
+    # Real cases still hold: write => read True; read never widens to write.
+    assert _grant_satisfies(write_grant, ("finance", "xero", "read")) is True
+    assert _grant_satisfies(("finance", "xero", "read"), write_grant) is False
+    # Future-proofing case: WRITE does not satisfy a hypothetical non-read action.
+    assert _grant_satisfies(write_grant, ("finance", "xero", "admin")) is False
 
 
 def test_domain_read_does_not_imply_domain_write() -> None:
